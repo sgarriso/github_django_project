@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block content %}
+{% if Asset_list %}
+	<p> Asset List:</p>
+    <ul>
+    {% for Asset in Asset_list %}
+        <li><a href="{% url 'dashboard:Assets'  Asset.id %}">{{ Asset.name }}</a></li>
+    {% endfor %}
+    </ul>
+{% else %}
+    <p>No Assets are available.</p>
+{% endif %}
+
+{% if product_list %}
+	<p> product List:</p>
+    <ul>
+
+    {% for product in product_list %}
+    	{% for p in product %}
+        	<li><a href="{% url 'dashboard:products' p.id %}">{{ p.name }}</a></li>
+    	{% endfor %}
+    {% endfor %}
+    </ul>
+{% else %}
+    <p>No products are linked to this asset.</p>
+{% endif %}
+{% endblock %}

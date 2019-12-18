@@ -1,0 +1,6 @@
+{% for f in record.get_printable_fields %}
+  <dt>{{f.label|capfirst}}</dt>
+    <dd>
+      {{f.value|escape|urlize|linebreaks}}
+    </dd>
+{% endfor %}

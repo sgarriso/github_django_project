@@ -1,5 +1,6 @@
 import requests
 import json
+import time
 # note we could do 60 but for testing and throtting reasons we will do just 3
 def get_github_loads(minpage=1,maxpage=3):
     parsed_data = []
@@ -23,8 +24,18 @@ def upload_data_records(records):
             print(json_string)
         print(r)
     for record in records:
-        for r in record:
-            upload_data(r)
+        upload_data(record)
+def upload_patched_data_records(records,repo_ids):
+    def upload_data(record,repo_id):
+        json_string = json.dumps(record) 
+        url = 'http://127.0.0.1:8000/django_api/record/' + str(repo_id) + '/'
+        headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+        r=requests.patch(url,json=record)
+        if r.status_code != 201:
+            print(json_string)
+        print(r)
+    for record,repo_id in zip(records,repo_ids):
+            upload_data(record,repo_id)
 def get_server_data():
     url = 'http://127.0.0.1:8000/django_api/record/'
     return requests.get(url).json()
@@ -60,21 +71,90 @@ def parse(data):
         values.append(data_values)
         data_values = {}
     return values
-        
+def compare(server_data,github_data):
+    def get_repo_ids(server_data):
+        ids = []
+        for record in server_data:
+            #print(record)
+            ids.append(int(record['repository_ID']))
+        return ids
+            
+    patched_data = []
+    new_data = []
+    repo_ids = []
+    ids=get_repo_ids(server_data)
+    print(ids)
+    for page in github_data:
+        for record in page:
+            if (record["repository_ID"]) in ids :
+                # compare values in github data and server if diff add to patch:
+                data = {}
+                id_loc = ids.index(record["repository_ID"])
+                for key in record.keys():
+                    if key != "repository_ID":
+                        if record[key] != server_data[id_loc][key]:
+                            data[key] = record[key]
+                            # bug with description saying there is a diff might need to write my own string compare
+                            #if key == "description":
+                             #   print((server_data[id_loc][key]))
+                             #   print((record[key]))
+                             #   print(str(record[key]) != str(server_data[id_loc][key]))
+                if data:
+                    repo_ids.append(record["repository_ID"])
+                    patched_data.append(data)
+                        
+            else:
+                new_data.append(record)
+    return patched_data,new_data,repo_ids
 def main():
     while True:
         parsed_data = get_github_loads()
         server_data = get_server_data()
-        patched_data,new_data = compare(server_data,parsed_data)
-        upload(patched_data)
+        patched_data,new_data,repo_ids = compare(server_data,parsed_data)
+        print(patched_data,new_data,repo_ids)
+        upload_data_records(new_data)
+        upload_patched_data_records(patched_data,repo_ids)
         # seconds , mins, one hour
         time.sleep(60 * 60 * 1)
 def test_parse():
     parsed_data=get_github_loads()
     server_data = get_server_data()
     #print(server_data)
-    upload_data_records(parsed_data)
-test_parse()
-    
+    #upload_data_records(parsed_data)
+#test_parse()
+def test_compare():
+    #parsed_data=get_github_loads()
+    parsed_data = [[{
+    "repository_ID": "83222441",
+    "name": "system-design-primer",
+    "url": "https://api.github.com/repos/donnemartin/system-design-primer",
+    "created_date": "2017-02-26T16:15:28Z",
+    "last_push_date": "2019-12-09T03:35:45Z",
+    "description": "Learn how to design large-scale systems. Prep for the system design interview.  Includes Anki flashcards.",
+    "stars": 5
+},    {"repository_ID": "1",
+    "name": "system-design-primer",
+    "url": "https://api.github.com/repos/donnemartin/system-design-primer",
+    "created_date": "2017-02-26T16:15:28Z",
+    "last_push_date": "2019-12-09T03:35:45Z",
+    "description": "Learn how to design large-scale systems. Prep for the system design interview.  Includes Anki flashcards.",
+    "stars": 78179}]]
+    #server_data = get_server_data()
+   # print(server_data)
+    server_data = [{
+    "id": 2097,
+    "repository_ID": "83222441",
+    "name": "system-design-primer",
+    "url": "https://api.github.com/repos/donnemartin/system-design-primer",
+    "created_date": "2017-02-26T16:15:28Z",
+    "last_push_date": "2019-12-09T03:35:45Z",
+    "description": "Learn how to design large-scale systems. Prep for the system design interview.  Includes Anki flashcards.",
+    "stars": 78178
+}]
+    patched_data,new_data,repo_ids=compare(server_data,parsed_data)
+    print(patched_data,new_data,repo_ids)
+    #upload_data_records(new_data)
+    #upload_patched_data_records(patched_data,repo_ids)
+main()   
     
     
